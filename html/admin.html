@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="../img/LOGO NOTAS LINDAS.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin - NOTAS LINDAS</title>
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <h2>NOTAS LINDAS</h2>
+                <p>Panel Administrativo</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Contraseña:</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="login-btn">Ingresar</button>
+                <p class="login-note">Usuario demo: admin@notaslindas.com / Admin12345</p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Admin Panel -->
+    <div id="adminPanel" class="admin-panel">
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="admin-nav">
+                <h1>NOTAS LINDAS - Panel Admin</h1>
+                <div class="admin-actions">
+                    <button id="logoutBtn" class="btn-logout">Cerrar Sesión</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard -->
+        <main class="admin-main">
+            <!-- Stats -->
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Productos</h3>
+                    <p id="totalProducts">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Pedidos Pendientes</h3>
+                    <p id="pendingOrders">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Productos Agotados</h3>
+                    <p id="outOfStock">0</p>
+                </div>
+            </section>
+
+            <!-- Tabs -->
+            <section class="admin-tabs">
+                <button class="tab-btn active" data-tab="products">Gestión de Productos</button>
+                <button class="tab-btn" data-tab="orders">Pedidos</button>
+                <button class="tab-btn" data-tab="add-product">Agregar Producto</button>
+            </section>
+
+            <!-- Products Tab -->
+            <div id="products-tab" class="tab-content active">
+                <div id="productsLoader" class="loader" style="display:none; text-align:center; padding:40px 0;">
+                    <span>Cargando productos...</span>
+                </div>
+                <div class="table-container" id="productsTableContainer" style="display:none;">
+                    <table class="products-table">
+                        <thead>
+                            <tr>
+                                <th>Imagen</th>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <!-- Productos cargados dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Orders Tab -->
+            <div id="orders-tab" class="tab-content">
+                <div class="table-container">
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Productos</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            <!-- Pedidos cargados dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Add Product Tab -->
+            <div id="add-product-tab" class="tab-content">
+                <form id="addProductForm" class="product-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre del Producto *</label>
+                            <input type="text" id="productName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio *</label>
+                            <input type="number" id="productPrice" required min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Categoría *</label>
+                            <select id="productCategory" required>
+                                <option value="">Seleccionar categoría</option>
+                                <option value="papeleria">Papelería</option>
+                                <option value="detalles">Detalles</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Stock *</label>
+                            <input type="number" id="productStock" required min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <textarea id="productDescription" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Imagen del Producto</label>
+                        <input type="file" id="productImage" accept="image/*">
+                        <div id="imagePreview" class="image-preview"></div>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Agregar Producto</button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Product Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Producto</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <form id="editProductForm">
+                <input type="hidden" id="editProductId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" id="editProductName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Precio</label>
+                        <input type="number" id="editProductPrice" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <select id="editProductCategory" required>
+                            <option value="papeleria">Papelería</option>
+                            <option value="detalles">Detalles</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Stock</label>
+                        <input type="number" id="editProductStock" required>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">Guardar Cambios</button>
+                    <button type="button" class="btn-cancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="../js/admin.js"></script>
+</body>
+</html>

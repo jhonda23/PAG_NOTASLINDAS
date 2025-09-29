@@ -1,0 +1,72 @@
+CONFIGURACIÓN PASO A PASO DE FIREBASE
+======================================
+
+PASO 1: CREAR PROYECTO EN FIREBASE
+1. Ve a: https://console.firebase.google.com
+2. Click en "Crear proyecto"
+3. Nombre: "notas-lindas"
+4. Sigue los pasos del asistente
+
+PASO 2: ACTIVAR SERVICIOS
+1. En tu proyecto, ve a "Authentication"
+   - Click en "Comenzar"
+   - Selecciona "Email/Contraseña"
+   - Actívalo y guarda
+
+2. Ve a "Firestore Database"
+   - Click en "Crear base de datos"
+   - Selecciona "Modo de prueba"
+   - Elige una ubicación cercana
+
+3. Ve a "Storage"
+   - Click en "Comenzar"
+   - Sigue los pasos iniciales
+
+PASO 3: CONFIGURAR REGLAS DE SEGURIDAD
+
+Firestore Rules (Ve a Firestore > Reglas):
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Los productos son de lectura pública
+    match /productos/{document} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    // Los pedidos solo los puede ver el admin
+    match /pedidos/{document} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+Storage Rules (Ve a Storage > Reglas):
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
+
+PASO 4: OBTENER CONFIGURACIÓN
+1. Ve a Configuración del proyecto > Configuración general
+2. En "Tus apps", click en "Web" (</>)
+3. Registra la app: "notas-lindas-web"
+4. Copia la configuración
+
+PASO 5: CONFIGURAR ARCHIVO
+Reemplaza el contenido de js/firebase-config.js con:
+
+const firebaseConfig = {
+    apiKey: "tu-api-key-real",
+    authDomain: "notas-lindas.firebaseapp.com",
+    projectId: "notas-lindas-12345",
+    storageBucket: "notas-lindas.appspot.com",
+    messagingSenderId: "123456789000",
+    appId: "1:123456789000:web:abcdef123456"
+};
+
+¡LISTO! Tu Firebase está configurado.
