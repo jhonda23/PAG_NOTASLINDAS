@@ -188,10 +188,13 @@ function actualizarCarrito() {
         const cartItem = document.createElement('div');
         cartItem.className = 'cart-item';
         cartItem.innerHTML = `
-            <div class="cart-item-info">
-                <h4>${item.nombre}</h4>
-                <p>$${item.precio} x ${item.cantidad}</p>
-                <p>Subtotal: $${subtotal}</p>
+            <div class="cart-item-info" style="display:flex;align-items:center;gap:10px;">
+                <img src="${item.imagen || 'images/placeholder.jpg'}" alt="${item.nombre}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;">
+                <div>
+                    <h4 style="margin:0 0 2px 0;">${item.nombre}</h4>
+                    <p style="margin:0;font-size:0.97em;">$${item.precio} x ${item.cantidad}</p>
+                    <p style="margin:0;font-size:0.97em;">Subtotal: $${subtotal}</p>
+                </div>
             </div>
             <div class="cart-item-controls">
                 <button class="quantity-btn" onclick="modificarCantidad('${item.id}', -1)">-</button>
