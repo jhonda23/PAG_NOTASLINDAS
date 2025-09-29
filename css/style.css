@@ -1,3 +1,57 @@
+/* Footer social (ubicacion.html también) */
+.footer-social {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: rgba(255,255,255,0.85);
+    padding: 10px 24px 10px 10px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+    z-index: 1003;
+}
+.footer-icons a {
+    margin-right: 10px;
+    display: inline-block;
+    transition: transform 0.2s;
+}
+.footer-icons a:hover {
+    transform: scale(1.15);
+}
+.footer-copy {
+    font-size: 0.95rem;
+    color: #444;
+    margin-left: 8px;
+}
+/* Footer social */
+.footer-social {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: rgba(255,255,255,0.85);
+    padding: 10px 24px 10px 10px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+    z-index: 1003;
+}
+.footer-icons a {
+    margin-right: 10px;
+    display: inline-block;
+    transition: transform 0.2s;
+}
+.footer-icons a:hover {
+    transform: scale(1.15);
+}
+.footer-copy {
+    font-size: 0.95rem;
+    color: #444;
+    margin-left: 8px;
+}
 /* Estilos Generales */
 * {
     margin: 0;
