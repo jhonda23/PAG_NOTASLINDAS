@@ -60,4 +60,19 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Dar like a un producto
+router.post('/:id/like', async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    product.likes = (product.likes || 0) + 1;
+    await product.save();
+    res.json({ likes: product.likes });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 export default router;

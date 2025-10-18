@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Jhon David Lasso/Desktop/NOTAS LINDAS/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
