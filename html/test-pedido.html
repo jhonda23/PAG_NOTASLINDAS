@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Pedido</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+            display: block;
+            width: 100%;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #resultado {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Prueba de Pedido</h1>
+        <p>Esta página te permite probar el sistema de pedidos directamente.</p>
+
+        <button onclick="probarPedido()">✅ Crear Pedido de Prueba</button>
+        <button onclick="verPedidos()">📋 Ver Todos los Pedidos</button>
+        <button onclick="probarConexion()">🔌 Probar Conexión Backend</button>
+
+        <div id="resultado"></div>
+    </div>
+
+    <script type="module">
+        import { API_BASE_URL } from '../js/api-config.js';
+
+        window.API_BASE_URL = API_BASE_URL;
+
+        window.probarConexion = async function() {
+            const resultado = document.getElementById('resultado');
+            resultado.style.display = 'block';
+            resultado.className = '';
+            resultado.innerHTML = '<p>⏳ Probando conexión...</p>';
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/products`);
+                if (res.ok) {
+                    const productos = await res.json();
+                    resultado.className = 'success';
+                    resultado.innerHTML = `
+                        <h3>✅ Conexión exitosa</h3>
+                        <p>Se encontraron ${productos.length} productos en la base de datos.</p>
+                        <pre>${JSON.stringify(productos.slice(0, 2), null, 2)}</pre>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+            } catch (error) {
+                resultado.className = 'error';
+                resultado.innerHTML = `
+                    <h3>❌ Error de conexión</h3>
+                    <p>${error.message}</p>
+                    <p><strong>Verifica que:</strong></p>
+                    <ul>
+                        <li>El servidor backend esté corriendo en ${API_BASE_URL}</li>
+                        <li>MongoDB esté iniciado</li>
+                        <li>No haya problemas de CORS</li>
+                    </ul>
+                `;
+            }
+        };
+
+        window.probarPedido = async function() {
+            const resultado = document.getElementById('resultado');
+            resultado.style.display = 'block';
+            resultado.className = '';
+            resultado.innerHTML = '<p>⏳ Creando pedido de prueba...</p>';
+
+            const pedidoTest = {
+                productos: [
+                    {
+                        id: "test-123",
+                        nombre: "Producto de Prueba",
+                        precio: 5000,
+                        cantidad: 2,
+                        imagen: "/uploads/test.jpg"
+                    }
+                ],
+                total: 10000,
+                estado: 'pendiente'
+            };
+
+            console.log('📤 Enviando pedido:', pedidoTest);
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(pedidoTest)
+                });
+
+                console.log('📥 Respuesta recibida:', res.status);
+
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log('✅ Pedido creado:', data);
+                    resultado.className = 'success';
+                    resultado.innerHTML = `
+                        <h3>✅ ¡Pedido creado exitosamente!</h3>
+                        <p><strong>ID del pedido:</strong> ${data._id}</p>
+                        <p><strong>Total:</strong> $${data.total}</p>
+                        <p><strong>Estado:</strong> ${data.estado}</p>
+                        <p><strong>Fecha:</strong> ${new Date(data.fecha).toLocaleString()}</p>
+                        <p>✉️ Se debería haber enviado un correo a: <strong>${window.EMAIL_DESTINO || 'dayanacruz.profe@gmail.com'}</strong></p>
+                        <details>
+                            <summary>Ver respuesta completa</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
+                    throw new Error(errorData.error || `HTTP ${res.status}`);
+                }
+            } catch (error) {
+                console.error('❌ Error:', error);
+                resultado.className = 'error';
+                resultado.innerHTML = `
+                    <h3>❌ Error al crear el pedido</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p><strong>Verifica:</strong></p>
+                    <ul>
+                        <li>Que el servidor backend esté corriendo</li>
+                        <li>Que MongoDB esté conectado</li>
+                        <li>Abre la consola del navegador (F12) para más detalles</li>
+                    </ul>
+                `;
+            }
+        };
+
+        window.verPedidos = async function() {
+            const resultado = document.getElementById('resultado');
+            resultado.style.display = 'block';
+            resultado.className = '';
+            resultado.innerHTML = '<p>⏳ Cargando pedidos...</p>';
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/orders`);
+                if (res.ok) {
+                    const pedidos = await res.json();
+                    resultado.className = 'success';
+                    resultado.innerHTML = `
+                        <h3>📋 Pedidos en la base de datos</h3>
+                        <p>Total de pedidos: ${pedidos.length}</p>
+                        <details>
+                            <summary>Ver últimos 3 pedidos</summary>
+                            <pre>${JSON.stringify(pedidos.slice(-3), null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+            } catch (error) {
+                resultado.className = 'error';
+                resultado.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        };
+
+        // Auto-probar conexión al cargar
+        window.addEventListener('load', () => {
+            console.log('🚀 Página de prueba cargada');
+            console.log('🔗 API URL:', API_BASE_URL);
+        });
+    </script>
+</body>
+</html>

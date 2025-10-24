@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="../img/LOGO NOTAS LINDAS.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOTAS LINDAS - Tendencias</title>
+    <meta property="og:title" content="NOTAS LINDAS - Tendencias">
+    <meta property="og:description" content="Descubre los productos más gustados en NOTAS LINDAS">
+    <meta property="og:image" content="../img/LOGO NOTAS LINDAS.png">
+    <meta property="og:url" content="https://tutienda.com/tendencias">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Header igual que index.html -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="../img/LOGO NOTAS LINDAS.png" alt="Logo Notas Lindas" style="max-width:60px; vertical-align:middle; margin-right:10px; float:left;">
+                <h1 style="display:inline-block; vertical-align:middle; margin:0;">NOTAS LINDAS</h1>
+                <p class="slogan">Kawai Store</p>
+            </div>
+            <nav class="nav">
+                <a href="../html/index.html" class="nav-link">Inicio</a>
+                <form id="searchForm" class="nav-search" style="display:inline-block; margin: 0 18px;">
+                    <input type="text" id="searchInput" placeholder="Buscar productos...">
+                </form>
+                <a href="../html/ubicacion.html" class="nav-link">Ubicación</a>
+                <a href="../html/admin.html" class="nav-link admin-link">Admin</a>
+            </nav>
+            <div class="cart-icon" id="cartToggle">
+                🛒 <span class="cart-count">0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="main">
+        <!-- Filtros -->
+        <section class="filters">
+            <div class="container">
+                <button class="filter-btn" data-filter="all" onclick="location.href='../html/index.html'">Todos</button>
+                <button class="filter-btn" data-filter="papeleria" onclick="location.href='../html/index.html#papeleria'">Papelería</button>
+                <button class="filter-btn" data-filter="detalles" onclick="location.href='../html/index.html#detalles'">Detalles</button>
+                <button class="filter-btn active" data-filter="tendencias">Tendencias</button>
+            </div>
+        </section>
+
+        <!-- Sección de productos en tendencia -->
+        <section class="products" id="tendenciasSection">
+            <div class="container">
+                <h2 class="section-title">Tendencias — Productos más gustados ❤️</h2>
+                <div class="products-grid" id="trendingGrid">
+                    <!-- Aquí se mostrarán dinámicamente los productos con más likes -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer social -->
+    <footer class="footer-social">
+        <div class="footer-icons">
+            <a href="https://facebook.com" target="_blank" aria-label="Facebook">
+                <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/facebook.svg" alt="Facebook" style="width:24px;height:24px;filter:invert(0.3);">
+            </a>
+            <a href="https://www.instagram.com/notas_lindas20?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" aria-label="Instagram">
+                <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/instagram.svg" alt="Instagram" style="width:24px;height:24px;filter:invert(0.3);">
+            </a>
+        </div>
+        <div class="footer-copy">&copy; 2025 Notas Lindas</div>
+    </footer>
+
+    <!-- Scripts -->
+    <script type="module" src="../js/api-config.js"></script>
+    <script type="module" src="../js/tendencias.js"></script>
+    <script type="module" src="../js/app.js"></script>
+    <script type="module" src="../js/admin.js"></script>
+</body>
+</html>

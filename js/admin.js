@@ -13,6 +13,7 @@ const ordersTableBody = document.getElementById('ordersTableBody');
 const addProductForm = document.getElementById('addProductForm');
 const editModal = document.getElementById('editModal');
 const editProductForm = document.getElementById('editProductForm');
+const orderDetailsModal = document.getElementById('orderDetailsModal');
 
 // Inicializar el panel admin
 document.addEventListener('DOMContentLoaded', function() {
@@ -78,11 +79,18 @@ function inicializarEventosAdmin() {
     editProductForm.addEventListener('submit', guardarEdicionProducto);
 
     // Modal
-    document.querySelector('.close-modal').addEventListener('click', cerrarModal);
-    document.querySelector('.btn-cancel').addEventListener('click', cerrarModal);
+    document.querySelectorAll('.close-modal').forEach(btn => btn.addEventListener('click', (e) => {
+        const modal = e.target.closest('.modal');
+        if (modal) modal.style.display = 'none';
+    }));
+    document.querySelector('.btn-cancel').addEventListener('click', () => cerrarModal('editModal'));
 
     // Preview de imagen
     document.getElementById('productImage').addEventListener('change', previewImage);
+
+    // Delegación de eventos para las tablas
+    productsTableBody.addEventListener('click', handleProductsTableActions);
+    ordersTableBody.addEventListener('click', handleOrdersTableActions);
 
     // Cerrar modal al hacer click fuera
     window.addEventListener('click', function(event) {
@@ -174,75 +182,47 @@ function mostrarProductosAdmin() {
                 </span>
             </td>
             <td>
-                <button class="btn-action btn-edit" onclick="abrirEditarProducto('${producto.id}')">✏️</button>
-                <button class="btn-action btn-toggle" onclick="toggleDisponibilidad('${producto.id}')">
+                <button class="btn-action btn-edit" data-id="${producto.id}" title="Editar">✏️</button>
+                <button class="btn-action btn-toggle" data-id="${producto.id}" title="Cambiar disponibilidad">
                     ${Number(producto.stock) > 0 ? '⏸️' : '▶️'}
                 </button>
-                <button class="btn-action btn-delete" onclick="eliminarProducto('${producto.id}')">🗑️</button>
+                <button class="btn-action btn-delete" data-id="${producto.id}" title="Eliminar">🗑️</button>
             </td>
         `;
         productsTableBody.appendChild(row);
     });
 }
 
-// Cargar pedidos para el admin
-async function cargarPedidosAdmin() {
-    try {
-        // Para MongoDB, necesitarías un endpoint específico para pedidos
-        // Por ahora usamos datos de ejemplo
-        adminOrders = [
-            {
-                id: '1',
-                fecha: new Date().toLocaleString(),
-                productos: [
-                    { nombre: 'Cuaderno Decorado', cantidad: 2, precio: 15000 }
-                ],
-                total: 30000,
-                estado: 'pendiente'
-            },
-            {
-                id: '2',
-                fecha: new Date(Date.now() - 86400000).toLocaleString(),
-                productos: [
-                    { nombre: 'Stickers Decorativos', cantidad: 1, precio: 8000 },
-                    { nombre: 'Taza Personalizada', cantidad: 1, precio: 12000 }
-                ],
-                total: 20000,
-                estado: 'procesado'
-            }
-        ];
-        mostrarPedidosAdmin();
-    } catch (error) {
-        console.error('Error cargando pedidos:', error);
-        adminOrders = [];
-        mostrarPedidosAdmin();
-    }
-}
-
 // Mostrar pedidos en la tabla del admin
 function mostrarPedidosAdmin() {
     ordersTableBody.innerHTML = '';
-    
     adminOrders.forEach(pedido => {
-        const productosList = pedido.productos.map(p => 
-            `${p.nombre} (${p.cantidad})`
-        ).join(', ');
+        const productosHtml = pedido.productos.map(p => `
+            <div class="order-product-thumbnail" title="${p.nombre} (x${p.cantidad})">
+                <img src="${p.imagen || 'https://via.placeholder.com/40'}" alt="${p.nombre}">
+                <span class="thumbnail-qty">${p.cantidad}</span>
+            </div>
+        `).join('');
         
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${pedido.fecha}</td>
-            <td>${productosList}</td>
-            <td>$${pedido.total}</td>
+            <td>${new Date(pedido.fecha).toLocaleString()}</td>
+            <td><div class="product-thumbnail-container">${productosHtml}</div></td>
+            <td>${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(pedido.total)}</td>
             <td>
-                <span class="status-badge ${pedido.estado === 'pendiente' ? 'status-pending' : 'status-available'}">
-                    ${pedido.estado}
+                <select class="status-select" data-id="${pedido.id}" onchange="actualizarEstadoPedido(this.dataset.id, this.value)">
+                    <option value="Pendiente" ${pedido.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                    <option value="Procesado" ${pedido.estado === 'Procesado' ? 'selected' : ''}>Procesado</option>
+                    <option value="Enviado" ${pedido.estado === 'Enviado' ? 'selected' : ''}>Enviado</option>
+                    <option value="Completado" ${pedido.estado === 'Completado' ? 'selected' : ''}>Completado</option>
+                    <option value="Cancelado" ${pedido.estado === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
+                </select>
+                <span class="status-badge status-${pedido.estado?.toLowerCase().replace(/ /g, '-')}">
+                    ${pedido.estado || 'N/A'}
                 </span>
             </td>
             <td>
-                <button class="btn-action btn-edit" onclick="marcarPedidoProcesado('${pedido.id}')">
-                    ✅
-                </button>
-                <button class="btn-action" onclick="verDetallesPedido('${pedido.id}')">
+                <button class="btn-action btn-view" data-id="${pedido.id}" title="Ver Detalles">
                     👁️
                 </button>
             </td>
@@ -251,11 +231,36 @@ function mostrarPedidosAdmin() {
     });
 }
 
+// Delegación de eventos para acciones en tablas
+function handleProductsTableActions(e) {
+    const target = e.target.closest('.btn-action');
+    if (!target) return;
+
+    const id = target.dataset.id;
+    if (target.classList.contains('btn-edit')) {
+        abrirEditarProducto(id);
+    } else if (target.classList.contains('btn-toggle')) {
+        toggleDisponibilidad(id);
+    } else if (target.classList.contains('btn-delete')) {
+        eliminarProducto(id);
+    }
+}
+
+function handleOrdersTableActions(e) {
+    const target = e.target.closest('.btn-action');
+    if (!target) return;
+
+    const id = target.dataset.id;
+    if (target.classList.contains('btn-view')) {
+        verDetallesPedido(id);
+    }
+}
+
 // Actualizar estadísticas
 function actualizarEstadisticas() {
     document.getElementById('totalProducts').textContent = adminProducts.length;
     
-    const pedidosPendientes = adminOrders.filter(p => p.estado === 'pendiente').length;
+    const pedidosPendientes = adminOrders.filter(p => p.estado === 'Pendiente' || p.estado === 'pendiente').length;
     document.getElementById('pendingOrders').textContent = pedidosPendientes;
     
     const productosAgotados = adminProducts.filter(p => p.stock === 0).length;
@@ -294,11 +299,11 @@ async function agregarProducto(e) {
         
         await cargarProductosAdmin();
         addProductForm.reset();
-        document.getElementById('imagePreview').innerHTML = '';
-        alert('Producto agregado exitosamente!');
+        document.getElementById('imagePreview').innerHTML = ''; // Limpiar preview
+        mostrarNotificacionAdmin('✅ Producto agregado exitosamente!', 'success');
     } catch (error) {
         console.error('Error agregando producto:', error);
-        alert('Error al agregar el producto: ' + error.message);
+        mostrarNotificacionAdmin(`❌ Error: ${error.message}`, 'error');
     }
 }
 
@@ -332,9 +337,9 @@ function abrirEditarProducto(productoId) {
     editModal.style.display = 'block';
 }
 
-// Cerrar modal
-function cerrarModal() {
-    editModal.style.display = 'none';
+// Cerrar un modal por su ID
+function cerrarModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
 }
 
 // Guardar edición de producto usando la API
@@ -357,11 +362,11 @@ async function guardarEdicionProducto(e) {
         if (!res.ok) throw new Error('Error al actualizar producto');
         
         await cargarProductosAdmin();
-        cerrarModal();
-        alert('Producto actualizado exitosamente!');
+        cerrarModal('editModal');
+        mostrarNotificacionAdmin('✅ Producto actualizado exitosamente!', 'success');
     } catch (error) {
         console.error('Error actualizando producto:', error);
-        alert('Error al actualizar el producto: ' + error.message);
+        mostrarNotificacionAdmin(`❌ Error: ${error.message}`, 'error');
     }
 }
 
@@ -370,7 +375,7 @@ async function toggleDisponibilidad(productoId) {
     const producto = adminProducts.find(p => p.id === productoId);
     if (!producto) return;
     
-    const nuevoStock = producto.stock > 0 ? 0 : 10;
+    const nuevoStock = producto.stock > 0 ? 0 : 1; // Pone en 0 si hay stock, o en 1 si no hay.
     
     try {
         const res = await fetch(`${API_BASE_URL}/products/${productoId}`, {
@@ -382,46 +387,56 @@ async function toggleDisponibilidad(productoId) {
         if (!res.ok) throw new Error('Error al cambiar disponibilidad');
         
         await cargarProductosAdmin();
-        alert(`Producto ${nuevoStock > 0 ? 'habilitado' : 'deshabilitado'} exitosamente!`);
+        mostrarNotificacionAdmin(`✅ Producto ${nuevoStock > 0 ? 'habilitado' : 'deshabilitado'}`, 'info');
     } catch (error) {
         console.error('Error cambiando disponibilidad:', error);
-        alert('Error: ' + error.message);
+        mostrarNotificacionAdmin(`❌ Error: ${error.message}`, 'error');
     }
 }
 
 // Eliminar producto usando la API
 async function eliminarProducto(productoId) {
-    if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
+    const confirmacion = await mostrarConfirmacion('¿Estás seguro de que quieres eliminar este producto? Esta acción no se puede deshacer.');
+    if (!confirmacion) return;
     
     try {
         const res = await fetch(`${API_BASE_URL}/products/${productoId}`, {
             method: 'DELETE'
         });
         
-        if (!res.ok) throw new Error('Error al eliminar producto');
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || 'Error al eliminar producto');
+        }
         
         await cargarProductosAdmin();
-        alert('Producto eliminado exitosamente!');
+        actualizarEstadisticas();
+        mostrarNotificacionAdmin('🗑️ Producto eliminado exitosamente!', 'success');
     } catch (error) {
         console.error('Error eliminando producto:', error);
-        alert('Error al eliminar el producto: ' + error.message);
+        mostrarNotificacionAdmin(`❌ Error: ${error.message}`, 'error');
     }
 }
 
-// Marcar pedido como procesado
-async function marcarPedidoProcesado(pedidoId) {
+// Actualizar estado de un pedido
+async function actualizarEstadoPedido(pedidoId, nuevoEstado) {
     try {
-        // En una implementación real, aquí harías un fetch a tu API
-        const pedido = adminOrders.find(p => p.id === pedidoId);
-        if (pedido) {
-            pedido.estado = 'procesado';
-            mostrarPedidosAdmin();
-            actualizarEstadisticas();
-            alert('Pedido marcado como procesado!');
-        }
+        const res = await fetch(`${API_BASE_URL}/orders/${pedidoId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: nuevoEstado })
+        });
+
+        if (!res.ok) throw new Error('Error al actualizar el estado del pedido');
+
+        // Actualizar localmente para reflejar el cambio inmediatamente
+        const pedidoIndex = adminOrders.findIndex(p => p.id === pedidoId);
+        if (pedidoIndex > -1) adminOrders[pedidoIndex].estado = nuevoEstado;
+        
+        mostrarNotificacionAdmin('✅ Estado del pedido actualizado.', 'success');
     } catch (error) {
-        console.error('Error procesando pedido:', error);
-        alert('Error: ' + error.message);
+        console.error('Error actualizando estado:', error);
+        mostrarNotificacionAdmin(`❌ Error: ${error.message}`, 'error');
     }
 }
 
@@ -429,17 +444,94 @@ async function marcarPedidoProcesado(pedidoId) {
 function verDetallesPedido(pedidoId) {
     const pedido = adminOrders.find(p => p.id === pedidoId);
     if (!pedido) return;
-    
-    const detalles = pedido.productos.map(p => 
-        `${p.nombre} - Cantidad: ${p.cantidad} - $${p.precio} c/u`
-    ).join('\n');
-    
-    alert(`Detalles del Pedido:\n\n${detalles}\n\nTotal: $${pedido.total}\nEstado: ${pedido.estado}`);
+
+    const modalBody = document.getElementById('orderDetailsBody');
+    const clienteInfo = pedido.cliente || pedido.clienteInfo;
+
+    const productosHtml = pedido.productos.map(p => `
+        <div class="order-item">
+            <img src="${p.imagen || 'https://via.placeholder.com/50'}" alt="${p.nombre}">
+            <div class="order-item-details">
+                <strong>${p.nombre}</strong>
+                <span>Cantidad: ${p.cantidad}</span>
+                <span>Precio: ${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(p.precio)}</span>
+            </div>
+        </div>
+    `).join('');
+
+    modalBody.innerHTML = `
+        <h4>Pedido #${pedido.id.slice(-6)}</h4>
+        <p><strong>Fecha:</strong> ${new Date(pedido.fecha).toLocaleString()}</p>
+        <p><strong>Estado:</strong> ${pedido.estado}</p>
+        <p><strong>Total:</strong> ${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(pedido.total)}</p>
+        
+        ${clienteInfo ? `
+        <h4>Cliente</h4>
+        <p><strong>Nombre:</strong> ${clienteInfo.nombre || 'N/A'}</p>
+        <p><strong>Email:</strong> ${clienteInfo.email || 'N/A'}</p>
+        <p><strong>Teléfono:</strong> ${clienteInfo.telefono || 'N/A'}</p>
+        ` : ''}
+
+        <h4>Productos</h4>
+        <div class="order-items-container">${productosHtml}</div>
+    `;
+
+    orderDetailsModal.style.display = 'block';
 }
 
-// Hacer funciones globales para los event listeners inline
-window.abrirEditarProducto = abrirEditarProducto;
-window.toggleDisponibilidad = toggleDisponibilidad;
-window.eliminarProducto = eliminarProducto;
-window.marcarPedidoProcesado = marcarPedidoProcesado;
-window.verDetallesPedido = verDetallesPedido;
+// Sistema de Notificaciones para Admin
+function mostrarNotificacionAdmin(mensaje, tipo = 'success', duracion = 3000) {
+    const container = document.getElementById('notification-container') || createNotifContainer();
+    const notif = document.createElement('div');
+    notif.className = `admin-notification ${tipo}`;
+    notif.textContent = mensaje;
+    container.appendChild(notif);
+
+    setTimeout(() => {
+        notif.classList.add('fade-out');
+        notif.addEventListener('animationend', () => notif.remove());
+    }, duracion);
+}
+
+function createNotifContainer() {
+    const container = document.createElement('div');
+    container.id = 'notification-container';
+    document.body.appendChild(container);
+    return container;
+}
+
+// Modal de Confirmación
+function mostrarConfirmacion(mensaje) {
+    return new Promise(resolve => {
+        const container = document.getElementById('confirmation-container') || createConfirmContainer();
+        container.innerHTML = `
+            <div class="confirm-modal">
+                <p>${mensaje}</p>
+                <div class="confirm-actions">
+                    <button id="confirm-yes">Sí, eliminar</button>
+                    <button id="confirm-no">Cancelar</button>
+                </div>
+            </div>
+        `;
+        container.style.display = 'flex';
+
+        document.getElementById('confirm-yes').onclick = () => {
+            container.style.display = 'none';
+            resolve(true);
+        };
+        document.getElementById('confirm-no').onclick = () => {
+            container.style.display = 'none';
+            resolve(false);
+        };
+    });
+}
+
+function createConfirmContainer() {
+    const container = document.createElement('div');
+    container.id = 'confirmation-container';
+    container.className = 'modal-overlay';
+    document.body.appendChild(container);
+    return container;
+}
+
+window.actualizarEstadoPedido = actualizarEstadoPedido; // Mantener global para el onchange

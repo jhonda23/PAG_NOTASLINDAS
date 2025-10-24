@@ -469,6 +469,44 @@ body.js-enabled #adminPanel {
     background: #5a6268;
 }
 
+/* Estilos para miniaturas de productos en pedidos */
+.product-thumbnail-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+}
+
+.order-product-thumbnail {
+    position: relative;
+    display: inline-block;
+}
+
+.order-product-thumbnail img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.thumbnail-qty {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    background-color: #d63384;
+    color: white;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: bold;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid white;
+}
+
 /* Status Badges */
 .status-badge {
     padding: 5px 10px;
