@@ -1,9 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const Order = require('../models/Order');
-const { sendOrderNotificationEmail } = require('../utils/mailer');
+import express from 'express';
+import Order from '../models/Order.js';
+import { sendOrderNotificationEmail } from '../utils/mailer.js';
 
 // GET todos los pedidos
+const router = express.Router();
 router.get('/', async (req, res) => {
     try {
         const orders = await Order.find().sort({ fecha: -1 });
@@ -58,5 +58,4 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-
-module.exports = router;
+export default router;

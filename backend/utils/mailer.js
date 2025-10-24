@@ -1,5 +1,6 @@
-const nodemailer = require('nodemailer');
-require('dotenv').config();
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Configuración del transporter para Nodemailer usando Gmail
 const transporter = nodemailer.createTransport({
@@ -11,7 +12,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Función para enviar el correo de notificación de nuevo pedido
-async function sendOrderNotificationEmail(order) {
+export async function sendOrderNotificationEmail(order) {
     const clienteEmail = order.cliente?.email || process.env.EMAIL_USER;
     const adminEmail = process.env.EMAIL_USER;
 
@@ -84,5 +85,3 @@ async function sendOrderNotificationEmail(order) {
     // Enviar el correo
     await transporter.sendMail(mailOptions);
 }
-
-module.exports = { sendOrderNotificationEmail };

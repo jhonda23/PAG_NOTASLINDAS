@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultado del Pago - Notas Lindas</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .result-container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 40px;
+            text-align: center;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .result-container.approved { background-color: #d4edda; color: #155724; }
+        .result-container.declined { background-color: #f8d7da; color: #721c24; }
+        .result-container h1 { margin-top: 0; }
+        .result-container p { font-size: 1.1em; }
+        .result-container a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #d63384;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="resultContainer" class="result-container">
+        <h1>Procesando resultado...</h1>
+        <p>Por favor, espera un momento.</p>
+    </div>
+
+    <script type="module" src="../js/payment-result.js"></script>
+</body>
+</html>

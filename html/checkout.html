@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="../img/LOGO NOTAS LINDAS.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finalizar Compra - Notas Lindas</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .checkout-container {
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px 40px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .checkout-container h1 {
+            color: #d63384;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .summary-box {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+        }
+        .pay-button {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .pay-button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="checkout-container">
+        <h1>Finalizar Compra</h1>
+        <div class="summary-box" id="orderSummary">
+            <p>Cargando resumen del pedido...</p>
+        </div>
+        <form id="checkoutForm">
+            <div class="form-group">
+                <label for="nombre">Nombre Completo</label>
+                <input type="text" id="nombre" name="nombre" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Correo Electrónico</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="telefono">Teléfono</label>
+                <input type="tel" id="telefono" name="telefono" required>
+            </div>
+            <button type="submit" class="pay-button" id="payBtn">Pagar con Wompi</button>
+        </form>
+    </div>
+    <script type="module" src="../js/checkout.js"></script>
+</body>
+</html>

@@ -2,6 +2,7 @@ import { API_BASE_URL } from './api-config.js';
 let productos = [];
 let carrito = [];
 let filtroActual = 'all';
+let terminoBusqueda = '';
 
 // Elementos del DOM
 const productsGrid = document.getElementById('productsGrid');
@@ -11,7 +12,15 @@ const cartCount = document.querySelector('.cart-count');
 const cartSidebar = document.getElementById('cartSidebar');
 const cartToggle = document.getElementById('cartToggle');
 const closeCart = document.getElementById('closeCart');
-const checkoutBtn = document.getElementById('checkoutBtn');
+const pickupBtn = document.getElementById('pickupBtn');
+const pickupModal = document.getElementById('pickupModal');
+const closePickupModal = document.getElementById('closePickupModal');
+const pickupForm = document.getElementById('pickupForm');
+const onlinePaymentModal = document.getElementById('onlinePaymentModal');
+const closeOnlinePaymentModal = document.getElementById('closeOnlinePaymentModal');
+const onlinePaymentForm = document.getElementById('onlinePaymentForm');
+const searchForm = document.getElementById('searchForm');
+const searchInput = document.getElementById('searchInput');
 const filterBtns = document.querySelectorAll('.filter-btn');
 
 // Inicializar la aplicación
@@ -52,8 +61,21 @@ function mostrarProductos() {
 
 // Filtrar productos según categoría
 function filtrarProductos() {
-    if (filtroActual === 'all') return productos;
-    return productos.filter(producto => producto.categoria === filtroActual);
+    let productosFiltrados = productos;
+
+    // 1. Filtrar por categoría
+    if (filtroActual !== 'all') {
+        productosFiltrados = productosFiltrados.filter(producto => producto.categoria === filtroActual);
+    }
+
+    // 2. Filtrar por término de búsqueda
+    if (terminoBusqueda) {
+        productosFiltrados = productosFiltrados.filter(producto => 
+            producto.nombre.toLowerCase().includes(terminoBusqueda.toLowerCase())
+        );
+    }
+
+    return productosFiltrados;
 }
 
 // Crear tarjeta de producto
@@ -79,6 +101,11 @@ function crearProductCard(producto) {
     // Asignar evento al botón
     card.querySelector('.add-to-cart').addEventListener('click', function() {
         agregarAlCarrito(producto.id);
+    });
+
+    // Evento de doble clic para dar "like"
+    card.addEventListener('dblclick', function() {
+        darLike(producto.id, card);
     });
     return card;
 }
@@ -134,16 +161,43 @@ function inicializarEventos() {
         });
     });
 
+    // Búsqueda
+    searchForm.addEventListener('submit', (e) => {
+        e.preventDefault(); // Evita que la página se recargue
+        terminoBusqueda = searchInput.value.trim();
+        mostrarProductos();
+    });
+
+    searchInput.addEventListener('input', () => {
+        terminoBusqueda = searchInput.value.trim();
+        mostrarProductos();
+    });
+
     // Carrito
     cartToggle.addEventListener('click', toggleCarrito);
     closeCart.addEventListener('click', toggleCarrito);
     
-    // Checkout
-    checkoutBtn.addEventListener('click', () => finalizarPedido('recoger'));
+    // Botón para Pagar en Punto Físico
+    pickupBtn.addEventListener('click', abrirModalRecoger);
+    closePickupModal.addEventListener('click', cerrarModalRecoger);
+    pickupForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        finalizarPedidoRecoger();
+    });
+
+    // Botón para Pagar Online
     const payBtn = document.getElementById('payBtn');
     if (payBtn) {
-        payBtn.addEventListener('click', () => finalizarPedido('pagar'));
+        payBtn.addEventListener('click', abrirModalPagoOnline);
     }
+    closeOnlinePaymentModal.addEventListener('click', cerrarModalPagoOnline);
+    onlinePaymentForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        procesarPagoOnline();
+    });
+
+    // Delegación de eventos para los botones del carrito
+    cartItems.addEventListener('click', handleCartActions);
 }
 
 // Funciones del Carrito
@@ -197,10 +251,10 @@ function actualizarCarrito() {
                 </div>
             </div>
             <div class="cart-item-controls">
-                <button class="quantity-btn" onclick="modificarCantidad('${item.id}', -1)">-</button>
+                <button class="quantity-btn" data-id="${item.id}" data-action="decrease">-</button>
                 <span>${item.cantidad}</span>
-                <button class="quantity-btn" onclick="modificarCantidad('${item.id}', 1)">+</button>
-                <button class="quantity-btn" onclick="eliminarDelCarrito('${item.id}')">🗑️</button>
+                <button class="quantity-btn" data-id="${item.id}" data-action="increase">+</button>
+                <button class="quantity-btn remove-btn" data-id="${item.id}" data-action="remove">🗑️</button>
             </div>
         `;
         cartItems.appendChild(cartItem);
@@ -210,7 +264,23 @@ function actualizarCarrito() {
     cartCount.textContent = totalItems;
 }
 
-function modificarCantidad(productoId, cambio) {
+function handleCartActions(e) {
+    const target = e.target;
+    if (!target.classList.contains('quantity-btn')) return;
+
+    const id = target.dataset.id;
+    const action = target.dataset.action;
+
+    if (action === 'increase') {
+        modificarCantidad(id, 1);
+    } else if (action === 'decrease') {
+        modificarCantidad(id, -1);
+    } else if (action === 'remove') {
+        eliminarDelCarrito(id);
+    }
+}
+
+function modificarCantidad(productoId, cambio, ) {
     const item = carrito.find(item => item.id === productoId);
     if (!item) return;
 
@@ -218,12 +288,12 @@ function modificarCantidad(productoId, cambio) {
     const nuevaCantidad = item.cantidad + cambio;
 
     if (nuevaCantidad < 1) {
-        eliminarDelCarrito(productoId);
+        eliminarDelCarrito(productoId, true); // No mostrar notificación doble
         return;
     }
 
     if (nuevaCantidad > producto.stock) {
-        alert('No hay suficiente stock disponible');
+        mostrarNotificacion('⚠️ No hay suficiente stock disponible', 'warning');
         return;
     }
 
@@ -232,10 +302,14 @@ function modificarCantidad(productoId, cambio) {
     guardarCarritoEnLocalStorage();
 }
 
-function eliminarDelCarrito(productoId) {
+function eliminarDelCarrito(productoId, silent = false) {
+    const itemIndex = carrito.findIndex(item => item.id === productoId);
+    if (itemIndex === -1) return;
+    const [removedItem] = carrito.splice(itemIndex, 1);
     carrito = carrito.filter(item => item.id !== productoId);
     actualizarCarrito();
     guardarCarritoEnLocalStorage();
+    if (!silent) mostrarNotificacion(`🗑️ ${removedItem.nombre} eliminado del carrito`, 'info');
 }
 
 function toggleCarrito() {
@@ -243,23 +317,47 @@ function toggleCarrito() {
     document.body.classList.toggle('no-scroll');
 }
 
-// Finalizar pedido
-async function finalizarPedido(tipoEntrega = 'recoger') {
+// --- Flujo de Pedido para Recoger en Tienda ---
+
+function abrirModalRecoger() {
     if (carrito.length === 0) {
         alert('Tu carrito está vacío');
         return;
     }
-
+    // Llenar resumen en el modal
     const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+    document.getElementById('pickupSummary').innerHTML = `
+        <p><strong>Total a pagar en tienda:</strong> ${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(total)}</p>
+    `;
+    pickupModal.style.display = 'flex';
+}
+
+function cerrarModalRecoger() {
+    pickupModal.style.display = 'none';
+}
+
+async function finalizarPedidoRecoger() {
+    const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+    
+    const cliente = {
+        nombre: document.getElementById('pickupName').value,
+        telefono: document.getElementById('pickupPhone').value
+    };
+
+    if (!cliente.nombre || !cliente.telefono) {
+        mostrarNotificacion('Por favor, completa tu nombre y teléfono.', 'warning');
+        return;
+    }
+
     const pedidoData = {
-        productos: carrito,
+        productos: carrito.map(({ id, nombre, precio, cantidad, imagen }) => ({ id, nombre, precio, cantidad, imagen })),
         total: total,
-        estado: 'pendiente',
-        tipoEntrega: tipoEntrega // recoger o pagar
+        estado: 'Pendiente de Recoger',
+        tipoEntrega: 'recoger_en_tienda',
+        cliente: cliente
     };
 
     try {
-        // Guardar pedido en la API REST
         const res = await fetch(`${API_BASE_URL}/orders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -267,30 +365,96 @@ async function finalizarPedido(tipoEntrega = 'recoger') {
         });
         if (!res.ok) throw new Error('Error al guardar el pedido');
 
-        // Enviar email (simulado por ahora)
-        enviarEmailPedido(pedidoData);
+        // Crear resumen para la alerta
+        const resumenPedido = carrito.map(item => 
+            `- ${item.nombre} (x${item.cantidad})`
+        ).join('\n');
 
-        // Limpiar carrito
+        mostrarNotificacion(`✅ ¡Pedido procesado con éxito! Revisa tu WhatsApp para la confirmación.`, 'success', 5000);
+
+        // Limpiar y cerrar todo
         carrito = [];
         actualizarCarrito();
         guardarCarritoEnLocalStorage();
-        toggleCarrito();
+        cerrarModalRecoger();
+        pickupForm.reset();
 
-        if (tipoEntrega === 'pagar') {
-            mostrarNotificacion('¡Pedido realizado! (Simulación de pago: aquí iría integración con pasarela)');
-        } else {
-            mostrarNotificacion('¡Pedido realizado con éxito! Te contactaremos pronto.');
-        }
     } catch (error) {
         console.error('Error al finalizar pedido:', error);
         alert('Error al procesar el pedido. Intenta nuevamente.');
     }
 }
 
-// Enviar email del pedido (simulado)
-function enviarEmailPedido(pedido) {
-    console.log('Enviando email con pedido:', pedido);
-    // Aquí integrarías EmailJS o otro servicio
+// --- Flujo de Pago Online ---
+
+function abrirModalPagoOnline() {
+    if (carrito.length === 0) {
+        alert('Tu carrito está vacío');
+        return;
+    }
+    onlinePaymentModal.style.display = 'flex';
+}
+
+function cerrarModalPagoOnline() {
+    onlinePaymentModal.style.display = 'none';
+}
+
+async function procesarPagoOnline() {
+    const payBtn = document.getElementById('confirmPayBtn');
+    payBtn.disabled = true;
+    payBtn.textContent = 'Procesando...';
+
+    const cliente = {
+        nombre: document.getElementById('onlineName').value,
+        email: document.getElementById('onlineEmail').value,
+        telefono: document.getElementById('onlinePhone').value,
+    };
+
+    const total = carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+
+    const pedidoData = {
+        productos: carrito.map(({ id, nombre, precio, cantidad, imagen }) => ({ id, nombre, precio, cantidad, imagen })),
+        total,
+        ...cliente
+    };
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/payments/create-wompi-transaction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pedidoData)
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'Error al crear la transacción');
+        }
+
+        const { transactionData, publicKey, reference, amountInCents } = await res.json();
+
+        // Limpiar carrito después de crear la transacción
+        localStorage.removeItem('notasLindasCarrito');
+
+        // Abrir el widget de Wompi
+        const checkout = new WidgetCheckout({
+            currency: 'COP',
+            amountInCents: amountInCents,
+            reference: reference,
+            publicKey: publicKey,
+            redirectUrl: `http://127.0.0.1:5500/html/payment-result.html`,
+        });
+
+        checkout.open(function (result) {
+            // El usuario será redirigido por el widget
+            // No es necesario hacer nada más aquí
+        });
+
+    } catch (error) {
+        console.error('Error en el checkout:', error);
+        alert('Hubo un problema al procesar tu pago. Por favor, intenta de nuevo.');
+        payBtn.disabled = false;
+        payBtn.textContent = 'Pagar con Wompi';
+    }
 }
 
 // Local Storage
@@ -307,26 +471,86 @@ function cargarCarritoDesdeLocalStorage() {
 }
 
 // Notificaciones
-function mostrarNotificacion(mensaje) {
-    // Crear notificación simple
+function mostrarNotificacion(mensaje, tipo = 'success', duracion = 3000) {
     const notification = document.createElement('div');
+    notification.className = `toast-notification ${tipo}`;
     notification.style.cssText = `
         position: fixed;
-        top: 100px;
+        top: 85px;
         right: 20px;
-        background: #4CAF50;
         color: white;
         padding: 15px 20px;
-        border-radius: 5px;
+        border-radius: 8px;
         z-index: 1002;
         animation: slideIn 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     `;
     notification.textContent = mensaje;
     document.body.appendChild(notification);
     
     setTimeout(() => {
-        notification.remove();
-    }, 3000);
+        notification.style.animation = 'slideOut 0.4s ease forwards';
+        notification.addEventListener('animationend', () => {
+            notification.remove();
+        });
+    }, duracion);
+}
+
+// Función para dar "Like" a un producto
+async function darLike(productoId, cardElement) {
+    const producto = productos.find(p => p.id === productoId);
+    if (!producto) return;
+
+    // 1. Actualización visual inmediata
+    producto.likes = (producto.likes || 0) + 1;
+    mostrarAnimacionLike(cardElement);
+
+    // 2. Notificar a la página de tendencias vía localStorage
+    try {
+        const likesData = JSON.parse(localStorage.getItem('notasLindasLikes') || '{}');
+        likesData[productoId] = producto.likes;
+        localStorage.setItem('notasLindasLikes', JSON.stringify(likesData));
+        // Este evento alertará a otras pestañas (como tendencias.html)
+        localStorage.setItem('likeActualizado', Date.now().toString());
+    } catch (err) {
+        console.warn('No se pudo guardar el like localmente:', err);
+    }
+
+    // 3. Enviar actualización al backend (sin esperar respuesta)
+    try {
+        const res = await fetch(`${API_BASE_URL}/products/${productoId}/like`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+            const data = await res.json();
+            // Actualizar el contador local con la respuesta definitiva del servidor
+            producto.likes = data.likes;
+        }
+    } catch (error) {
+        console.error('Error enviando like al backend:', error);
+        // Si falla, el like visual se mantiene, pero no se guardará permanentemente en este ciclo.
+        // Se podría implementar una lógica de reintento si fuera necesario.
+    }
+}
+
+// Muestra una animación de corazón sobre el producto
+function mostrarAnimacionLike(cardElement) {
+    const heart = document.createElement('div');
+    heart.textContent = '❤️';
+    heart.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 4rem;
+        opacity: 0;
+        animation: like-animation 0.8s ease-out;
+        pointer-events: none; /* Para no interferir con otros clics */
+    `;
+    cardElement.style.position = 'relative'; // Necesario para el posicionamiento absoluto del corazón
+    cardElement.appendChild(heart);
+    setTimeout(() => heart.remove(), 800);
 }
 
 // Estilos para la notificación
@@ -336,13 +560,24 @@ style.textContent = `
         from { transform: translateX(100%); opacity: 0; }
         to { transform: translateX(0); opacity: 1; }
     }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(120%); opacity: 0; }
+    }
     
     .no-scroll {
         overflow: hidden;
     }
+
+    @keyframes like-animation {
+        0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+        70% { transform: translate(-50%, -80%) scale(1.2); opacity: 0.8; }
+        100% { transform: translate(-50%, -100%) scale(1); opacity: 0; }
+    }
+
+    .toast-notification.success { background-color: #28a745; }
+    .toast-notification.info { background-color: #17a2b8; }
+    .toast-notification.warning { background-color: #ffc107; color: #333; }
+    .toast-notification.error { background-color: #dc3545; }
 `;
 document.head.appendChild(style);
-
-// Hacer funciones globales para los botones del carrito
-window.modificarCantidad = modificarCantidad;
-window.eliminarDelCarrito = eliminarDelCarrito;
