@@ -18,12 +18,12 @@ async function fixProductImages() {
     let corregidos = 0;
 
     for (const p of productos) {
-      if (p.imagen && !p.imagen.startsWith('/uploads/')) {
-        // Quita posibles "uploads" repetidos y limpia
-        let ruta = p.imagen.replace(/^uploads\/?/, '').replace(/^\/+/, '');
-        p.imagen = `/uploads/${ruta}`;
+      if (p.imagen && p.imagen.includes('/backend/uploads/')) {
+        // Corregir rutas incorrectas
+        p.imagen = p.imagen.replace('/backend/uploads/', '/uploads/');
         await p.save();
         corregidos++;
+        console.log(`✅ Corregido: ${p.nombre} -> ${p.imagen}`);
       }
     }
 
