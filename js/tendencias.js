@@ -13,10 +13,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.key === 'likeActualizado') {
             console.log('🔄 Like detectado, actualizando ranking...');
             aplicarLikesLocales();
-            productos.sort((a, b) => b.likes - a.likes); // Re-ordenar la lista
+            productos.sort((a, b) => b.likes - a.likes);
             mostrarProductos();
         }
     });
+
+    // REFRESH EN CALIENTE: lee localStorage cada segundo
+    setInterval(() => {
+        aplicarLikesLocales();
+        productos.sort((a, b) => b.likes - a.likes);
+        mostrarProductos();
+    }, 1000);
 });
 
 // ===============================

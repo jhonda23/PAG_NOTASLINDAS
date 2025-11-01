@@ -110,44 +110,7 @@ function crearProductCard(producto) {
     return card;
 }
 
-// Productos de demostración (si Firebase falla)
-function mostrarProductosDemo() {
-    productos = [
-        {
-            id: '1',
-            nombre: 'Cuaderno Decorado',
-            precio: 15000,
-            categoria: 'papeleria',
-            stock: 10,
-            imagen: 'images/placeholder.jpg'
-        },
-        {
-            id: '2', 
-            nombre: 'Set de Stickers',
-            precio: 8000,
-            categoria: 'papeleria',
-            stock: 15,
-            imagen: 'images/placeholder.jpg'
-        },
-        {
-            id: '3',
-            nombre: 'Taza Personalizada',
-            precio: 25000,
-            categoria: 'detalles',
-            stock: 5,
-            imagen: 'images/placeholder.jpg'
-        },
-        {
-            id: '4',
-            nombre: 'Caja Sorpresa',
-            precio: 35000,
-            categoria: 'detalles',
-            stock: 8,
-            imagen: 'images/placeholder.jpg'
-        }
-    ];
-    mostrarProductos();
-}
+
 
 // Inicializar eventos
 function inicializarEventos() {

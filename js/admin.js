@@ -62,7 +62,6 @@ function inicializarEventosAdmin() {
     logoutBtn.addEventListener('click', function() {
         localStorage.removeItem('adminLoggedIn');
         mostrarLogin();
-        // Limpiar datos al cerrar sesión
         adminProducts = [];
         adminOrders = [];
         productsTableBody.innerHTML = '';
@@ -83,10 +82,17 @@ function inicializarEventosAdmin() {
         const modal = e.target.closest('.modal');
         if (modal) modal.style.display = 'none';
     }));
-    document.querySelector('.btn-cancel').addEventListener('click', () => cerrarModal('editModal'));
+    
+    const btnCancel = document.querySelector('.btn-cancel');
+    if (btnCancel) {
+        btnCancel.addEventListener('click', () => cerrarModal('editModal'));
+    }
 
     // Preview de imagen
-    document.getElementById('productImage').addEventListener('change', previewImage);
+    const productImageInput = document.getElementById('productImage');
+    if (productImageInput) {
+        productImageInput.addEventListener('change', previewImage);
+    }
 
     // Delegación de eventos para las tablas
     productsTableBody.addEventListener('click', handleProductsTableActions);
@@ -95,20 +101,21 @@ function inicializarEventosAdmin() {
     // Cerrar modal al hacer click fuera
     window.addEventListener('click', function(event) {
         if (event.target === editModal) {
-            cerrarModal();
+            cerrarModal('editModal');
+        }
+        if (event.target === orderDetailsModal) {
+            cerrarModal('orderDetailsModal');
         }
     });
 }
 
 // Cambiar entre tabs
 function cambiarTab(tabName) {
-    // Actualizar botones de tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
     
-    // Actualizar contenido de tabs
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
@@ -120,6 +127,84 @@ async function cargarDatosAdmin() {
     await cargarProductosAdmin();
     await cargarPedidosAdmin();
     actualizarEstadisticas();
+    diagnosticarImagenes(); // ← NUEVA FUNCIÓN DE DIAGNÓSTICO
+}
+
+// Función auxiliar para construir URL de imagen correctamente - SIN PLACEHOLDER
+function construirUrlImagen(imagenPath, size = 60) {
+    try {
+        console.log('🖼️ Construyendo URL para imagen:', imagenPath);
+        
+        // Si no hay imagen, retornar null o cadena vacía
+        if (!imagenPath || imagenPath === '' || imagenPath === 'null' || imagenPath === 'undefined') {
+            console.log('🖼️ Sin imagen disponible');
+            return ''; // Retornar cadena vacía en lugar de placeholder
+        }
+        
+        // Si ya es una URL completa, devolverla tal cual
+        if (imagenPath.startsWith('http://') || imagenPath.startsWith('https://')) {
+            return imagenPath;
+        }
+        
+        // Limpiar la ruta de la imagen
+        let rutaLimpia = String(imagenPath).trim();
+        
+        // ❌ ELIMINAR CUALQUIER /api/ de la ruta
+        rutaLimpia = rutaLimpia.replace(/^\/?api\//, '');
+        
+        // Asegurar que la ruta empiece con /uploads/
+        if (!rutaLimpia.startsWith('/uploads/')) {
+            if (rutaLimpia.startsWith('uploads/')) {
+                rutaLimpia = `/${rutaLimpia}`;
+            } else {
+                rutaLimpia = `/uploads/${rutaLimpia}`;
+            }
+        }
+        
+        // Construir URL final SIN /api
+        const baseUrl = API_BASE_URL.replace('/api', '');
+        const urlFinal = `${baseUrl}${rutaLimpia}`;
+        
+        console.log('🖼️ URL construida final:', urlFinal);
+        return urlFinal;
+    } catch (error) {
+        console.error('❌ Error construyendo URL de imagen:', error);
+        return ''; // Retornar cadena vacía en caso de error
+    }
+}
+// Función de diagnóstico para verificar imágenes
+async function diagnosticarImagenes() {
+    console.log('🔍 DIAGNÓSTICO DE IMÁGENES');
+    console.log('API_BASE_URL:', API_BASE_URL);
+    console.log('URL Base sin /api:', API_BASE_URL.replace('/api', ''));
+    
+    if (adminProducts.length > 0) {
+        adminProducts.forEach((producto, index) => {
+            const urlFinal = construirUrlImagen(producto.imagen);
+            console.log(`📦 Producto ${index + 1}:`, {
+                nombre: producto.nombre,
+                imagenEnDB: producto.imagen,
+                urlConstruida: urlFinal
+            });
+            
+            // Testear la URL
+            testImageLoad(urlFinal, producto.nombre);
+        });
+    } else {
+        console.log('📦 No hay productos cargados');
+    }
+}
+
+// Función para testear carga de imágenes
+function testImageLoad(url, nombre) {
+    const img = new Image();
+    img.onload = function() {
+        console.log(`✅ Imagen cargada: ${nombre}`);
+    };
+    img.onerror = function() {
+        console.log(`❌ Error cargando imagen: ${nombre}`, url);
+    };
+    img.src = url;
 }
 
 // Cargar productos para el admin desde la API
@@ -134,6 +219,9 @@ async function cargarProductosAdmin() {
         const res = await fetch(`${API_BASE_URL}/products`);
         if (!res.ok) throw new Error('Error al cargar productos');
         const data = await res.json();
+        
+        console.log('Productos cargados:', data); // Debug
+        
         adminProducts = data.map(p => ({
             ...p,
             id: p._id
@@ -151,31 +239,70 @@ async function cargarProductosAdmin() {
     }
 }
 
-// Mostrar productos en la tabla del admin
+// Cargar pedidos para el admin desde la API
+async function cargarPedidosAdmin() {
+    const loader = document.getElementById('ordersLoader');
+    const tableContainer = document.getElementById('ordersTableContainer');
+    if (loader && tableContainer) {
+        loader.style.display = 'block';
+        tableContainer.style.display = 'none';
+    }
+    try {
+        const res = await fetch(`${API_BASE_URL}/orders`);
+        if (!res.ok) throw new Error('Error al cargar pedidos');
+        const data = await res.json();
+        
+        // Ordenar por fecha descendente (más recientes primero) - redundante por si el backend falla
+        adminOrders = data.map(o => ({
+            ...o,
+            id: o._id,
+            fecha: o.createdAt || o.fecha
+        })).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // ← ORDENAR EN FRONTEND TAMBIÉN
+        
+        console.log(`📦 ${adminOrders.length} pedidos cargados, ordenados por fecha descendente`);
+        mostrarPedidosAdmin();
+    } catch (error) {
+        console.error('Error cargando pedidos:', error);
+        adminOrders = [];
+        mostrarPedidosAdmin();
+    } finally {
+        if (loader && tableContainer) {
+            loader.style.display = 'none';
+            tableContainer.style.display = 'block';
+        }
+    }
+}
+// Mostrar productos en la tabla del admin - VERSIÓN CORREGIDA
 function mostrarProductosAdmin() {
     productsTableBody.innerHTML = '';
     
+    if (adminProducts.length === 0) {
+        productsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay productos registrados</td></tr>';
+        return;
+    }
+    
     adminProducts.forEach(producto => {
+        const imagenUrl = construirUrlImagen(producto.imagen, 60);
+        console.log('URL de imagen construida:', imagenUrl, 'desde:', producto.imagen);
+        
         const row = document.createElement('tr');
-        // Determinar la URL de la imagen
-        let imagenUrl = 'https://via.placeholder.com/60x60?text=No+Image';
-        if (producto.imagen) {
-            if (producto.imagen.startsWith('/uploads/')) {
-                imagenUrl = `http://localhost:4000${producto.imagen}`;
-            } else {
-                imagenUrl = producto.imagen;
-            }
-        }
+        
+        // Si no hay imagen, mostrar un div vacío en lugar de img con error
+        const imagenHtml = imagenUrl ? 
+            `<img src="${imagenUrl}" 
+                  alt="${producto.nombre || 'Producto'}"
+                  style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; display: block; margin: 0 auto;"
+                  onerror="this.style.display='none';">` :
+            `<div style="width: 60px; height: 60px; background: #f5f5f5; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 10px;">Sin img</div>`;
+        
         row.innerHTML = `
-            <td class="product-image-cell">
-             <img src="${imagenUrl}" 
-                 alt="${producto.nombre}"
-                 onerror="this.src='https://via.placeholder.com/60x60?text=No+Image'">
+            <td class="product-image-cell" style="padding: 8px;">
+                ${imagenHtml}
             </td>
-            <td>${producto.nombre}</td>
-            <td>${producto.categoria === 'papeleria' ? 'Papelería' : 'Detalles'}</td>
-            <td>${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(producto.precio)}</td>
-            <td>${producto.stock}</td>
+            <td>${producto.nombre || 'Sin nombre'}</td>
+            <td>${producto.categoria === 'papeleria' ? 'Papelería' : producto.categoria === 'detalles' ? 'Detalles' : producto.categoria}</td>
+            <td>${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(producto.precio || 0)}</td>
+            <td>${producto.stock || 0}</td>
             <td>
                 <span class="status-badge ${Number(producto.stock) > 0 ? 'status-available' : 'status-out'}">
                     ${Number(producto.stock) > 0 ? 'Disponible' : 'Agotado'}
@@ -193,32 +320,64 @@ function mostrarProductosAdmin() {
     });
 }
 
-// Mostrar pedidos en la tabla del admin
+// Mostrar pedidos en la tabla del admin - VERSIÓN CORREGIDA
 function mostrarPedidosAdmin() {
     ordersTableBody.innerHTML = '';
+    
+    if (adminOrders.length === 0) {
+        ordersTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No hay pedidos registrados</td></tr>';
+        return;
+    }
+    
     adminOrders.forEach(pedido => {
-        const productosHtml = pedido.productos.map(p => `
-            <div class="order-product-thumbnail" title="${p.nombre} (x${p.cantidad})">
-                <img src="${p.imagen || 'https://via.placeholder.com/40'}" alt="${p.nombre}">
-                <span class="thumbnail-qty">${p.cantidad}</span>
-            </div>
-        `).join('');
+        console.log('📦 Procesando pedido:', pedido.id, pedido.productos);
+        
+        let productosHtml = '';
+        
+        if (pedido.productos && pedido.productos.length > 0) {
+            productosHtml = pedido.productos.map(p => {
+                // En tu estructura, la imagen está en p.imagen
+                const imgSrc = construirUrlImagen(p.imagen, 40);
+                const nombreProducto = p.nombre || 'Producto';
+                const cantidad = p.cantidad || 1;
+                
+                // Si no hay imagen, mostrar solo el nombre
+                const imagenHtml = imgSrc ? 
+                    `<img src="${imgSrc}" 
+                         alt="${nombreProducto}" 
+                         style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;"
+                         onerror="this.style.display='none';">` :
+                    `<div style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 8px;">Sin img</div>`;
+                
+                return `
+                    <div class="order-product-thumbnail" title="${nombreProducto} (x${cantidad})">
+                        ${imagenHtml}
+                        <span class="thumbnail-qty">${cantidad}</span>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            productosHtml = '<div style="color: #999;">Sin productos</div>';
+        }
         
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${new Date(pedido.fecha).toLocaleString()}</td>
+            <td>${pedido.fecha ? new Date(pedido.fecha).toLocaleString('es-CO') : 'Fecha no disponible'}</td>
             <td><div class="product-thumbnail-container">${productosHtml}</div></td>
-            <td>${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(pedido.total)}</td>
+            <td>${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(pedido.total || 0)}</td>
             <td>
-                <select class="status-select" data-id="${pedido.id}" onchange="actualizarEstadoPedido(this.dataset.id, this.value)">
+                <select class="status-select" data-id="${pedido.id}">
                     <option value="Pendiente" ${pedido.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                    <option value="Pendiente de Recoger" ${pedido.estado === 'Pendiente de Recoger' ? 'selected' : ''}>Pendiente de Recoger</option>
                     <option value="Procesado" ${pedido.estado === 'Procesado' ? 'selected' : ''}>Procesado</option>
+                    <option value="Pagado" ${pedido.estado === 'Pagado' ? 'selected' : ''}>Pagado</option>
                     <option value="Enviado" ${pedido.estado === 'Enviado' ? 'selected' : ''}>Enviado</option>
                     <option value="Completado" ${pedido.estado === 'Completado' ? 'selected' : ''}>Completado</option>
                     <option value="Cancelado" ${pedido.estado === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
+                    <option value="Rechazado" ${pedido.estado === 'Rechazado' ? 'selected' : ''}>Rechazado</option>
                 </select>
-                <span class="status-badge status-${pedido.estado?.toLowerCase().replace(/ /g, '-')}">
-                    ${pedido.estado || 'N/A'}
+                <span class="status-badge status-${(pedido.estado || 'Pendiente').toLowerCase().replace(/ /g, '-')}">
+                    ${pedido.estado || 'Pendiente'}
                 </span>
             </td>
             <td>
@@ -229,7 +388,21 @@ function mostrarPedidosAdmin() {
         `;
         ordersTableBody.appendChild(row);
     });
+    
+    // Configurar event listeners para los selects
+    document.querySelectorAll('.status-select').forEach(select => {
+        select.addEventListener('change', (e) => {
+            actualizarEstadoPedido(e.target.dataset.id, e.target.value);
+        });
+    });
 }
+    // Configurar event listeners para los selects
+    document.querySelectorAll('.status-select').forEach(select => {
+        select.addEventListener('change', (e) => {
+            actualizarEstadoPedido(e.target.dataset.id, e.target.value);
+        });
+    });
+
 
 // Delegación de eventos para acciones en tablas
 function handleProductsTableActions(e) {
@@ -258,13 +431,25 @@ function handleOrdersTableActions(e) {
 
 // Actualizar estadísticas
 function actualizarEstadisticas() {
-    document.getElementById('totalProducts').textContent = adminProducts.length;
+    const totalProductsEl = document.getElementById('totalProducts');
+    const pendingOrdersEl = document.getElementById('pendingOrders');
+    const outOfStockEl = document.getElementById('outOfStock');
     
-    const pedidosPendientes = adminOrders.filter(p => p.estado === 'Pendiente' || p.estado === 'pendiente').length;
-    document.getElementById('pendingOrders').textContent = pedidosPendientes;
+    if (totalProductsEl) {
+        totalProductsEl.textContent = adminProducts.length;
+    }
     
-    const productosAgotados = adminProducts.filter(p => p.stock === 0).length;
-    document.getElementById('outOfStock').textContent = productosAgotados;
+    if (pendingOrdersEl) {
+        const pedidosPendientes = adminOrders.filter(p => 
+            p.estado === 'Pendiente' || p.estado === 'pendiente'
+        ).length;
+        pendingOrdersEl.textContent = pedidosPendientes;
+    }
+    
+    if (outOfStockEl) {
+        const productosAgotados = adminProducts.filter(p => Number(p.stock) === 0).length;
+        outOfStockEl.textContent = productosAgotados;
+    }
 }
 
 // Agregar nuevo producto usando la API
@@ -295,11 +480,18 @@ async function agregarProducto(e) {
             body: formData
         });
         
-        if (!res.ok) throw new Error('Error al agregar producto');
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || 'Error al agregar producto');
+        }
         
         await cargarProductosAdmin();
+        actualizarEstadisticas();
         addProductForm.reset();
-        document.getElementById('imagePreview').innerHTML = ''; // Limpiar preview
+        const imagePreview = document.getElementById('imagePreview');
+        if (imagePreview) {
+            imagePreview.innerHTML = '';
+        }
         mostrarNotificacionAdmin('✅ Producto agregado exitosamente!', 'success');
     } catch (error) {
         console.error('Error agregando producto:', error);
@@ -312,10 +504,12 @@ function previewImage(event) {
     const file = event.target.files[0];
     const preview = document.getElementById('imagePreview');
     
+    if (!preview) return;
+    
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+            preview.innerHTML = `<img src="${e.target.result}" alt="Preview" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">`;
         };
         reader.readAsDataURL(file);
     } else {
@@ -334,12 +528,20 @@ function abrirEditarProducto(productoId) {
     document.getElementById('editProductCategory').value = producto.categoria;
     document.getElementById('editProductStock').value = producto.stock;
     
+    const editDescEl = document.getElementById('editProductDescription');
+    if (editDescEl) {
+        editDescEl.value = producto.descripcion || '';
+    }
+    
     editModal.style.display = 'block';
 }
 
 // Cerrar un modal por su ID
 function cerrarModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 // Guardar edición de producto usando la API
@@ -351,17 +553,31 @@ async function guardarEdicionProducto(e) {
     const precio = parseInt(document.getElementById('editProductPrice').value);
     const categoria = document.getElementById('editProductCategory').value;
     const stock = parseInt(document.getElementById('editProductStock').value);
+    const descripcionEl = document.getElementById('editProductDescription');
+    const descripcion = descripcionEl ? descripcionEl.value : '';
+
+    const formData = new FormData();
+    formData.append('nombre', nombre);
+    formData.append('precio', precio);
+    formData.append('categoria', categoria);
+    formData.append('stock', stock);
+    if (descripcion) {
+        formData.append('descripcion', descripcion);
+    }
 
     try {
         const res = await fetch(`${API_BASE_URL}/products/${productoId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, precio, categoria, stock })
+            body: formData
         });
         
-        if (!res.ok) throw new Error('Error al actualizar producto');
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || 'Error al actualizar producto');
+        }
         
         await cargarProductosAdmin();
+        actualizarEstadisticas();
         cerrarModal('editModal');
         mostrarNotificacionAdmin('✅ Producto actualizado exitosamente!', 'success');
     } catch (error) {
@@ -370,33 +586,69 @@ async function guardarEdicionProducto(e) {
     }
 }
 
-// Cambiar disponibilidad del producto usando la API
+// Cambiar disponibilidad del producto usando el endpoint toggle-stock
 async function toggleDisponibilidad(productoId) {
     const producto = adminProducts.find(p => p.id === productoId);
-    if (!producto) return;
+    if (!producto) {
+        mostrarNotificacionAdmin('❌ Producto no encontrado', 'error');
+        return;
+    }
     
-    const nuevoStock = producto.stock > 0 ? 0 : 1; // Pone en 0 si hay stock, o en 1 si no hay.
+    console.log('Alternando disponibilidad para producto:', productoId); // Debug
     
     try {
-        const res = await fetch(`${API_BASE_URL}/products/${productoId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ stock: nuevoStock })
+        const url = `${API_BASE_URL}/products/${productoId}/toggle-stock`;
+        console.log('Haciendo petición PATCH a:', url); // Debug
+        
+        const res = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (!res.ok) throw new Error('Error al cambiar disponibilidad');
+        console.log('Respuesta recibida. Status:', res.status); // Debug
+        
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Error del servidor:', errorText); // Debug
+            let errorMessage = 'Error al cambiar disponibilidad';
+            try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.message || errorMessage;
+            } catch (e) {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+        
+        const data = await res.json();
+        console.log('Respuesta exitosa:', data); // Debug
         
         await cargarProductosAdmin();
-        mostrarNotificacionAdmin(`✅ Producto ${nuevoStock > 0 ? 'habilitado' : 'deshabilitado'}`, 'info');
+        actualizarEstadisticas();
+        
+        const nuevoStock = data.producto?.stock;
+        mostrarNotificacionAdmin(
+            `✅ Producto ${nuevoStock > 0 ? 'habilitado' : 'deshabilitado'}`, 
+            'info'
+        );
     } catch (error) {
-        console.error('Error cambiando disponibilidad:', error);
+        console.error('Error completo cambiando disponibilidad:', error);
         mostrarNotificacionAdmin(`❌ Error: ${error.message}`, 'error');
     }
 }
 
 // Eliminar producto usando la API
 async function eliminarProducto(productoId) {
-    const confirmacion = await mostrarConfirmacion('¿Estás seguro de que quieres eliminar este producto? Esta acción no se puede deshacer.');
+    const producto = adminProducts.find(p => p.id === productoId);
+    const nombreProducto = producto ? producto.nombre : 'este producto';
+    
+    const confirmacion = await mostrarConfirmacion(
+        `¿Estás seguro de que quieres eliminar "${nombreProducto}"?`,
+        'Esta acción no se puede deshacer.'
+    );
+    
     if (!confirmacion) return;
     
     try {
@@ -418,58 +670,122 @@ async function eliminarProducto(productoId) {
     }
 }
 
-// Actualizar estado de un pedido
+// Actualizar estado de un pedido - VERSIÓN CORREGIDA
 async function actualizarEstadoPedido(pedidoId, nuevoEstado) {
+    console.log('🔄 Actualizando estado del pedido:', pedidoId, '->', nuevoEstado);
+    
     try {
-        const res = await fetch(`${API_BASE_URL}/orders/${pedidoId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estado: nuevoEstado })
-        });
-
-        if (!res.ok) throw new Error('Error al actualizar el estado del pedido');
-
-        // Actualizar localmente para reflejar el cambio inmediatamente
-        const pedidoIndex = adminOrders.findIndex(p => p.id === pedidoId);
-        if (pedidoIndex > -1) adminOrders[pedidoIndex].estado = nuevoEstado;
+        let url;
+        let method = 'PUT';
+        let body = JSON.stringify({ estado: nuevoEstado });
         
+        // Si es Finalizado, usar el endpoint específico
+        if (nuevoEstado === 'Finalizado') {
+            url = `${API_BASE_URL}/orders/${pedidoId}/finalizar`;
+            method = 'PATCH';
+            body = null; // PATCH no necesita body para este endpoint
+        } else {
+            url = `${API_BASE_URL}/orders/${pedidoId}`;
+        }
+        
+        console.log('📝 Request:', method, url);
+        
+        const options = {
+            method: method,
+            headers: { 
+                'Content-Type': 'application/json'
+            }
+        };
+        
+        if (body) {
+            options.body = body;
+        }
+        
+        const res = await fetch(url, options);
+
+        console.log('📡 Respuesta recibida. Status:', res.status);
+        
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('❌ Error del servidor:', errorText);
+            
+            try {
+                const errorData = JSON.parse(errorText);
+                throw new Error(errorData.message || `Error ${res.status}`);
+            } catch (e) {
+                throw new Error(`Error ${res.status}: ${errorText.substring(0, 100)}`);
+            }
+        }
+
+        const responseData = await res.json();
+        console.log('✅ Pedido actualizado:', responseData);
+
+        // Actualizar el estado localmente
+        const pedidoIndex = adminOrders.findIndex(p => p.id === pedidoId);
+        if (pedidoIndex > -1) {
+            adminOrders[pedidoIndex].estado = nuevoEstado;
+        }
+        
+        // Actualizar la tabla
+        mostrarPedidosAdmin();
+        actualizarEstadisticas();
         mostrarNotificacionAdmin('✅ Estado del pedido actualizado.', 'success');
+        
     } catch (error) {
-        console.error('Error actualizando estado:', error);
+        console.error('❌ Error actualizando estado:', error);
         mostrarNotificacionAdmin(`❌ Error: ${error.message}`, 'error');
+        
+        // Recargar pedidos para sincronizar
+        await cargarPedidosAdmin();
     }
 }
-
-// Ver detalles del pedido
+// Ver detalles del pedido -
 function verDetallesPedido(pedidoId) {
     const pedido = adminOrders.find(p => p.id === pedidoId);
     if (!pedido) return;
 
     const modalBody = document.getElementById('orderDetailsBody');
-    const clienteInfo = pedido.cliente || pedido.clienteInfo;
+    const clienteInfo = pedido.cliente;
 
-    const productosHtml = pedido.productos.map(p => `
-        <div class="order-item">
-            <img src="${p.imagen || 'https://via.placeholder.com/50'}" alt="${p.nombre}">
-            <div class="order-item-details">
-                <strong>${p.nombre}</strong>
-                <span>Cantidad: ${p.cantidad}</span>
-                <span>Precio: ${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(p.precio)}</span>
+    const productosHtml = pedido.productos.map(p => {
+        const imgSrc = construirUrlImagen(p.imagen, 50);
+        const nombreProducto = p.nombre || 'Producto';
+        const cantidad = p.cantidad || 1;
+        const precio = p.precio || 0;
+        
+        // Si no hay imagen, mostrar solo el nombre
+        const imagenHtml = imgSrc ? 
+            `<img src="${imgSrc}" 
+                 alt="${nombreProducto}" 
+                 style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;"
+                 onerror="this.style.display='none';">` :
+            `<div style="width: 50px; height: 50px; background: #f5f5f5; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 10px;">Sin img</div>`;
+        
+        return `
+            <div class="order-item">
+                ${imagenHtml}
+                <div class="order-item-details">
+                    <strong>${nombreProducto}</strong>
+                    <span>Cantidad: ${cantidad}</span>
+                    <span>Precio: ${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(precio)}</span>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 
     modalBody.innerHTML = `
         <h4>Pedido #${pedido.id.slice(-6)}</h4>
-        <p><strong>Fecha:</strong> ${new Date(pedido.fecha).toLocaleString()}</p>
-        <p><strong>Estado:</strong> ${pedido.estado}</p>
+        <p><strong>Fecha:</strong> ${new Date(pedido.fecha).toLocaleString('es-CO')}</p>
+        <p><strong>Estado:</strong> <span class="status-badge status-${pedido.estado?.toLowerCase()}">${pedido.estado}</span></p>
         <p><strong>Total:</strong> ${new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(pedido.total)}</p>
+        <p><strong>Tipo entrega:</strong> ${pedido.tipoEntrega || 'No especificado'}</p>
         
         ${clienteInfo ? `
         <h4>Cliente</h4>
         <p><strong>Nombre:</strong> ${clienteInfo.nombre || 'N/A'}</p>
         <p><strong>Email:</strong> ${clienteInfo.email || 'N/A'}</p>
         <p><strong>Teléfono:</strong> ${clienteInfo.telefono || 'N/A'}</p>
+        ${clienteInfo.direccion ? `<p><strong>Dirección:</strong> ${clienteInfo.direccion}</p>` : ''}
         ` : ''}
 
         <h4>Productos</h4>
@@ -478,7 +794,6 @@ function verDetallesPedido(pedidoId) {
 
     orderDetailsModal.style.display = 'block';
 }
-
 // Sistema de Notificaciones para Admin
 function mostrarNotificacionAdmin(mensaje, tipo = 'success', duracion = 3000) {
     const container = document.getElementById('notification-container') || createNotifContainer();
@@ -496,20 +811,53 @@ function mostrarNotificacionAdmin(mensaje, tipo = 'success', duracion = 3000) {
 function createNotifContainer() {
     const container = document.createElement('div');
     container.id = 'notification-container';
+    container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000;';
     document.body.appendChild(container);
     return container;
 }
 
-// Modal de Confirmación
-function mostrarConfirmacion(mensaje) {
+// Modal de Confirmación MEJORADO - MÁS VISIBLE
+function mostrarConfirmacion(mensaje, submensaje = '') {
     return new Promise(resolve => {
         const container = document.getElementById('confirmation-container') || createConfirmContainer();
         container.innerHTML = `
-            <div class="confirm-modal">
-                <p>${mensaje}</p>
-                <div class="confirm-actions">
-                    <button id="confirm-yes">Sí, eliminar</button>
-                    <button id="confirm-no">Cancelar</button>
+            <div class="confirm-modal" style="
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                max-width: 450px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+                text-align: center;
+            ">
+                <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                <h3 style="margin: 0 0 10px 0; color: #333; font-size: 20px;">${mensaje}</h3>
+                ${submensaje ? `<p style="color: #666; margin: 0 0 25px 0; font-size: 14px;">${submensaje}</p>` : ''}
+                <div class="confirm-actions" style="
+                    display: flex;
+                    gap: 15px;
+                    justify-content: center;
+                    margin-top: 25px;
+                ">
+                    <button id="confirm-yes" style="
+                        background: #dc3545;
+                        color: white;
+                        border: none;
+                        padding: 12px 30px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 600;
+                    ">Sí, eliminar</button>
+                    <button id="confirm-no" style="
+                        background: #6c757d;
+                        color: white;
+                        border: none;
+                        padding: 12px 30px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 600;
+                    ">Cancelar</button>
                 </div>
             </div>
         `;
@@ -529,9 +877,18 @@ function mostrarConfirmacion(mensaje) {
 function createConfirmContainer() {
     const container = document.createElement('div');
     container.id = 'confirmation-container';
-    container.className = 'modal-overlay';
+    container.style.cssText = `
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+        z-index: 99999;
+        align-items: center;
+        justify-content: center;
+    `;
     document.body.appendChild(container);
     return container;
 }
-
-window.actualizarEstadoPedido = actualizarEstadoPedido; // Mantener global para el onchange
